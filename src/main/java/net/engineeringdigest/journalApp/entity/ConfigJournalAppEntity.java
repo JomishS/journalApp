@@ -10,20 +10,14 @@ import com.mongodb.lang.NonNull;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import net.engineeringdigest.journalApp.enums.Sentiment;
 
 
-@Document(collection = "journal_entries")
+@Document(collection = "config_journal_app")
 @Data
 @NoArgsConstructor
-public class JournalEntry {
+public class ConfigJournalAppEntity {
 
-    @Id
-    public ObjectId id;
-    @NonNull
-    public String title;
-    public String content;
-    public LocalDateTime date;
-    private Sentiment sentiment;
+    public String key;
+    public String value;
 
 }
