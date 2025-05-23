@@ -29,7 +29,6 @@ public class UserScheduler {
     @Autowired
     private EmailService emailService;
 
-
     @Autowired
     private AppCache appCache;
 
@@ -37,37 +36,45 @@ public class UserScheduler {
     private KafkaTemplate<String, SentimentData> kafkaTemplate;
 
     @Scheduled(cron = "0 0 9 * * SUN")
-    public void fetchUsersAndSendSaMail(){
+    public void fetchUsersAndSendSaMail() {
         List<User> users = userRepository.getUserForSA();
-        for(User user: users){
+        for (User user : users) {
             List<JournalEntry> journalEntries = user.getJournalEntries();
-            List<Sentiment> sentiments = journalEntries.stream().filter(x -> x.getDate().
-              isAfter(LocalDateTime.now().minus(7,ChronoUnit.DAYS))).map(x ->x.getSentiment()).collect(Collectors.toList());
-            Map<Sentiment, Integer> sentimentCounts= new HashMap<>();
-            for(Sentiment sentiment : sentiments){
-                if(sentiment!=null){
-                    sentimentCounts.put(sentiment,sentimentCounts.getOrDefault(sentiment, 0)+1);
+            List<Sentiment> sentiments = journalEntries.stream()
+                    .filter(x -> x.getDate().isAfter(LocalDateTime.now().minus(7, ChronoUnit.DAYS)))
+                    .map(x -> x.getSentiment()).collect(Collectors.toList());
+            Map<Sentiment, Integer> sentimentCounts = new HashMap<>();
+            for (Sentiment sentiment : sentiments) {
+                if (sentiment != null) {
+                    sentimentCounts.put(sentiment, sentimentCounts.getOrDefault(sentiment, 0) + 1);
                 }
             }
-            Sentiment mostFrequentSentiment=null;
-            int maxCount=0;
-            for(Map.Entry<Sentiment, Integer> entry : sentimentCounts.entrySet()){
-                if(entry.getValue()>maxCount){
-                    maxCount=entry.getValue();
-                    mostFrequentSentiment=entry.getKey();
+            Sentiment mostFrequentSentiment = null;
+            int maxCount = 0;
+            for (Map.Entry<Sentiment, Integer> entry : sentimentCounts.entrySet()) {
+                if (entry.getValue() > maxCount) {
+                    maxCount = entry.getValue();
+                    mostFrequentSentiment = entry.getKey();
                 }
             }
-            if(mostFrequentSentiment!=null){
-                // emailService.sendEmail(user.getEmail(), "Sentiment for last 7 days ", mostFrequentSentiment.toString());
-                SentimentData sentimentData= SentimentData.builder().email(user.getEmail()).sentiment("Sentiment for last 7 days " + mostFrequentSentiment).build();
-                kafkaTemplate.send("weekly_sentiments", sentimentData.getEmail(),sentimentData);//producers job
+            if (mostFrequentSentiment != null) {
+                // emailService.sendEmail(user.getEmail(), "Sentiment for last 7 days ",
+                // mostFrequentSentiment.toString());
+                SentimentData sentimentData = SentimentData.builder().email(user.getEmail())
+                        .sentiment("Sentiment for last 7 days " + mostFrequentSentiment).build();
+                try {
+                    kafkaTemplate.send("weekly_sentiments", sentimentData.getEmail(), sentimentData);// producers job
+                } catch (Exception e) {
+                    emailService.sendEmail(sentimentData.getEmail(), "Sentiment for the previous week",
+                            sentimentData.getSentiment());
+                }
             }
         }
-        
+
     }
 
     @Scheduled(cron = "0 0/10 * ? * *")
-    public void clearAppCache(){
+    public void clearAppCache() {
         appCache.init();
     }
 
